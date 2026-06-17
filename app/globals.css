@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Fraunces Variable", "Iowan Old Style", serif;
+  --font-body: "Work Sans", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
+}
+
+* {
+  border-color: theme("colors.board.line");
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #212e29;
+  color: #f6f1e4;
+  font-family: var(--font-body);
+}
+
+/* Subtle chalk-dust grain so flat dark panels don't look like plain CSS rectangles */
+.grain {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(246, 241, 228, 0.05) 1px,
+    transparent 0
+  );
+  background-size: 14px 14px;
+}
+
+.ticket-edge {
+  -webkit-mask-image: radial-gradient(
+      circle at 0 50%,
+      transparent 5px,
+      black 5.5px
+    ),
+    radial-gradient(circle at 100% 50%, transparent 5px, black 5.5px);
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: radial-gradient(circle at 0 50%, transparent 5px, black 5.5px),
+    radial-gradient(circle at 100% 50%, transparent 5px, black 5.5px);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #5b4434 transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Visible keyboard focus, independent of any one component's styling */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #e7ae52;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
