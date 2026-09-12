@@ -4,7 +4,10 @@
 // the first table it reaches is guaranteed to be the closest one by
 // number of steps — BFS explores the grid one ring of distance at a
 // time, so whichever free table it pops first is provably nearest.
+// Occupancy is persisted in SQLite (see lib/schema.sql).
 
+import type Database from "better-sqlite3";
+import { getDb } from "./db";
 import type { GridCell, SeatResult } from "./types";
 
 const ROWS = 6;
@@ -24,6 +27,34 @@ export class SeatingManager {
   private occupied: boolean[][] = Array.from({ length: ROWS }, () =>
     Array.from({ length: COLS }, () => false)
   );
+  private readonly db: Database.Database;
+
+  constructor(db?: Database.Database) {
+    this.db = db ?? getDb();
+    this.loadFromDb();
+  }
+
+  private loadFromDb(): void {
+    const rows = this.db
+      .prepare(`SELECT row, col, occupied FROM seats WHERE occupied = 1`)
+      .all() as Array<{ row: number; col: number; occupied: number }>;
+
+    for (const { row, col } of rows) {
+      if (this.isWithinBounds(row, col)) {
+        this.occupied[row][col] = true;
+      }
+    }
+  }
+
+  private setOccupied(row: number, col: number, occupied: boolean): void {
+    this.occupied[row][col] = occupied;
+    this.db
+      .prepare(
+        `INSERT INTO seats (row, col, occupied) VALUES (?, ?, ?)
+         ON CONFLICT(row, col) DO UPDATE SET occupied = excluded.occupied`
+      )
+      .run(row, col, occupied ? 1 : 0);
+  }
 
   private isWithinBounds(row: number, col: number): boolean {
     return row >= 0 && row < ROWS && col >= 0 && col < COLS;
@@ -58,7 +89,7 @@ export class SeatingManager {
       const [row, col] = queue.shift()!;
 
       if (this.isTableCell(row, col) && !this.occupied[row][col]) {
-        this.occupied[row][col] = true;
+        this.setOccupied(row, col, true);
         return { found: true, row, col, distance: distance[row][col] };
       }
 
@@ -78,13 +109,13 @@ export class SeatingManager {
 
   occupySeat(row: number, col: number): boolean {
     if (!this.isTableCell(row, col) || this.occupied[row][col]) return false;
-    this.occupied[row][col] = true;
+    this.setOccupied(row, col, true);
     return true;
   }
 
   freeSeat(row: number, col: number): boolean {
     if (!this.isTableCell(row, col) || !this.occupied[row][col]) return false;
-    this.occupied[row][col] = false;
+    this.setOccupied(row, col, false);
     return true;
   }
 

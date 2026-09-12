@@ -3,7 +3,10 @@
 // staircases, department blocks) and runs Dijkstra's algorithm with
 // a binary min-heap to find the shortest walking distance — in
 // metres — from the cafe to any department, lab, or lounge.
+// Each routing request is logged to SQLite (see lib/schema.sql).
 
+import type Database from "better-sqlite3";
+import { getDb } from "./db";
 import { MinHeap } from "./minHeap";
 import type { DeliveryResult, LocationInfo } from "./types";
 
@@ -48,8 +51,10 @@ const EDGES: Array<[number, number, number]> = [
 
 export class DeliveryManager {
   private adjacency: Array<Array<[number, number]>> = [];
+  private readonly db: Database.Database;
 
-  constructor() {
+  constructor(db?: Database.Database) {
+    this.db = db ?? getDb();
     this.adjacency = LOCATIONS.map(() => []);
     for (const [u, v, w] of EDGES) {
       this.adjacency[u].push([v, w]);
@@ -99,7 +104,14 @@ export class DeliveryManager {
     }
 
     if (destination < 0 || destination >= n || dist[destination] === INF) {
-      return { reachable: false, distance: -1, path: [], steps: [] };
+      const unreachable: DeliveryResult = {
+        reachable: false,
+        distance: -1,
+        path: [],
+        steps: [],
+      };
+      this.persistRequest(destination, unreachable);
+      return unreachable;
     }
 
     const reversedPath: number[] = [];
@@ -110,7 +122,7 @@ export class DeliveryManager {
     }
     reversedPath.reverse();
 
-    return {
+    const result: DeliveryResult = {
       reachable: true,
       distance: dist[destination],
       path: reversedPath.map((idx) => LOCATIONS[idx].name),
@@ -119,5 +131,23 @@ export class DeliveryManager {
         distanceFromCafe: dist[idx],
       })),
     };
+    this.persistRequest(destination, result);
+    return result;
+  }
+
+  private persistRequest(destination: number, result: DeliveryResult): void {
+    this.db
+      .prepare(
+        `INSERT INTO delivery_requests
+           (destination, reachable, distance, path_json, created_at)
+         VALUES (?, ?, ?, ?, ?)`
+      )
+      .run(
+        destination,
+        result.reachable ? 1 : 0,
+        result.distance,
+        JSON.stringify(result.path),
+        Date.now()
+      );
   }
 }

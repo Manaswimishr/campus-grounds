@@ -3,15 +3,19 @@
 // state on every edit — so instances are cached on `globalThis`, the
 // same trick the Next.js docs recommend for database clients.
 //
-// Production note: this keeps state in the memory of a single
-// serverless function instance. That's perfect for a live portfolio
-// demo, but a real deployment serving concurrent instances would
-// swap these for a shared store (Redis / Postgres) behind the same
-// three classes — the API routes wouldn't need to change at all.
+// State is persisted in a local SQLite database (better-sqlite3).
+// getDb() runs the schema migration before these managers construct
+// and hydrate from disk. Public APIs on OrderQueueManager,
+// SeatingManager, and DeliveryManager stay the same, so API routes
+// under app/api/ do not need to change.
 
+import { getDb } from "./db";
 import { OrderQueueManager } from "./orderQueue";
 import { SeatingManager } from "./seating";
 import { DeliveryManager } from "./delivery";
+
+// Ensure the database exists and schema is applied before managers load.
+const db = getDb();
 
 declare global {
   // eslint-disable-next-line no-var
@@ -22,11 +26,12 @@ declare global {
   var __cafeDelivery: DeliveryManager | undefined;
 }
 
-export const orderQueue = globalThis.__cafeOrderQueue ?? new OrderQueueManager();
+export const orderQueue =
+  globalThis.__cafeOrderQueue ?? new OrderQueueManager(db);
 globalThis.__cafeOrderQueue = orderQueue;
 
-export const seating = globalThis.__cafeSeating ?? new SeatingManager();
+export const seating = globalThis.__cafeSeating ?? new SeatingManager(db);
 globalThis.__cafeSeating = seating;
 
-export const delivery = globalThis.__cafeDelivery ?? new DeliveryManager();
+export const delivery = globalThis.__cafeDelivery ?? new DeliveryManager(db);
 globalThis.__cafeDelivery = delivery;
